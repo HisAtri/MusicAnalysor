@@ -205,12 +205,11 @@ def main(folder_path, threshold, threads, debug=False):
     pathToMFCC, fileQuant = process_audio_folder(folder_path, threads)       # 完成MFCC
     clusters = perform_hierarchical_clustering(pathToMFCC, threshold, fileQuant)    # 进行聚类
     # 输出结果
+    duplicateList = []
     for i, cluster in enumerate(clusters):
         if debug or (len(cluster) > 1):
-            print(f"Cluster {i+1}:")
-            for audio_file in cluster:
-                print(audio_file)
-            print()
+            duplicateList.append(cluster)
+    return duplicateList
 
 if __name__ == "__main__":
     folder_path = "F:\\programs\\MuSIM\\test"  # 音频文件夹路径
