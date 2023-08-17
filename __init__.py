@@ -161,15 +161,25 @@ def process_file(args):
     file_path = args
     print(file_path)
     file_md5 = calculate_md5(file_path)
-    global md5ToMFCC, pathToMFCC, fileQuant
+    global md5ToMFCC, pathToMFCC, fileQuant, fatalError
 
+    # 如果MD5存在，直接赋值
     if file_md5 in md5ToMFCC:
         mfcc_features = md5ToMFCC[file_md5]
+    # 如果MD5不存在，则Feature
     else:
-        mfcc_features = feature(file_path)
-        md5ToMFCC[file_md5] = mfcc_features
+        try:
+            # 计算
+            mfcc_features = feature(file_path)
+            # 赋值
+            md5ToMFCC[file_md5] = mfcc_features
+        except:
+            print("Error:" + file_path)
+            fatalError.append(file_md5)
+
 
     # 处理多声道的MFCC特征向量
+    # 如果声道数大于1，则平均混合
     if len(mfcc_features.shape) > 1:
         mfcc_features = np.mean(mfcc_features, axis=1)  # 平均混合多个声道
 
@@ -186,10 +196,11 @@ def process_audio_folder(folder_path, threads):
     返回:
        Dict[str, numpy.ndarray]: 文件路径到 MFCC 特征向量的映射
     """
-    global md5ToMFCC, pathToMFCC, fileQuant
+    global md5ToMFCC, pathToMFCC, fileQuant, fatalError
     md5ToMFCC = {}
     pathToMFCC = {}
     fileQuant = 0
+    fatalError = []
 
     if os.path.exists("MFCC.npy"):
         md5ToMFCC = np.load("MFCC.npy", allow_pickle=True).item()
@@ -207,18 +218,18 @@ def process_audio_folder(folder_path, threads):
     np.save("MFCC.npy", md5ToMFCC)
 
     print("完成特征向量提取，正在进行聚类...")
-    return pathToMFCC, fileQuant
+    return pathToMFCC, fileQuant, fatalError
 
 # 主程序
 def main(folder_path, threshold, threads, debug=False):
-    pathToMFCC, fileQuant = process_audio_folder(folder_path, threads)       # 完成MFCC
+    pathToMFCC, fileQuant, fatalError = process_audio_folder(folder_path, threads)       # 完成MFCC
     clusters = perform_hierarchical_clustering(pathToMFCC, threshold, fileQuant)    # 进行聚类
     # 输出结果
     duplicateList = []
     for i, cluster in enumerate(clusters):
         if debug or (len(cluster) > 1):
             duplicateList.append(cluster)
-    return duplicateList
+    return duplicateList, fatalError
 
 if __name__ == "__main__":
     folder_path = "F:\\programs\\MuSIM\\test"  # 音频文件夹路径
