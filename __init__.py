@@ -159,7 +159,7 @@ def perform_hierarchical_clustering(pathToMFCC, threshold, fileQuant):
 
 def process_file(args):
     file_path = args
-    print(file_path)
+    # print(file_path)
     file_md5 = calculate_md5(file_path)
     global md5ToMFCC, pathToMFCC, fileQuant, fatalError
 
@@ -176,7 +176,8 @@ def process_file(args):
         except:
             print("Error:" + file_path)
             fatalError.append(file_md5)
-
+            fileQuant += 1
+            return
 
     # 处理多声道的MFCC特征向量
     # 如果声道数大于1，则平均混合
