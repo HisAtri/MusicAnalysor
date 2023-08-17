@@ -27,7 +27,7 @@ def calculate_md5(file_path):
     return hasher.hexdigest()
 
 # 提取音频文件的MFCC特征
-def feature(path, target_sr=8000, n_mfcc=50, frame_size=16384, hop_length=2048):
+def feature(path, target_sr=8000, n_mfcc=30, frame_size=16384, hop_length=2048, max_duration=600):
     """
     提取音频文件的 MFCC 特征
 
@@ -37,14 +37,17 @@ def feature(path, target_sr=8000, n_mfcc=50, frame_size=16384, hop_length=2048):
         n_mfcc (int): MFCC的数量，默认为50
         frame_size (int): 帧大小，默认为16384
         hop_length (int): 帧之间的跳跃长度，默认为2048
+        max_duration (int): 最大持续时间（秒），默认为600秒（10分钟）
 
     返回:
         numpy.ndarray: MFCC 特征向量
     """
-    y, sr = librosa.load(path, sr=target_sr, )
+    y, sr = librosa.load(path, sr=target_sr, duration=max_duration)
     y = librosa.effects.preemphasis(y)      # 预加重处理
     y = librosa.util.normalize(y)           # 音量归一化
     mfcc_features = librosa.feature.mfcc(y=y, sr=target_sr, n_mfcc=n_mfcc, n_fft=frame_size, hop_length=hop_length)
+    # 转换精度
+    mfcc_features = mfcc_features.astype(np.float32)
     return mfcc_features.flatten()
 
 def cosine_similarity(vector1, vector2):
@@ -112,6 +115,8 @@ def perform_hierarchical_clustering(pathToMFCC, threshold, fileQuant):
 
     clusters = kmeans.fit_predict(padded_vectors)   # 获得返回的聚类结果
 
+    print("完成k-means聚类，进行层次聚类")
+
     clustered_paths = {}                            # 创建空字典
     for i, path in enumerate(pathToMFCC.keys()):    # 遍历pathToMFCC字典的key
         cluster = clusters[i]
@@ -126,31 +131,35 @@ def perform_hierarchical_clustering(pathToMFCC, threshold, fileQuant):
         similarity_matrix = calculate_similarity_matrix(cluster_vectors)
 
         # 使用层次聚类进行细分
-        linkage_matrix = linkage(similarity_matrix, method="average")
-        clusters = fcluster(linkage_matrix, threshold, criterion="distance")
+        if len(cluster_paths) > 1:
+            linkage_matrix = linkage(similarity_matrix, method="centroid")
+            clusters = fcluster(linkage_matrix, threshold, criterion="distance")
 
-        sub_clusters = {}
-        for i, path in enumerate(cluster_paths):
-            sub_cluster = clusters[i]
-            if sub_cluster not in sub_clusters:
-                sub_clusters[sub_cluster] = [path]
-            else:
-                sub_clusters[sub_cluster].append(path)
+            sub_clusters = {}
+            for i, path in enumerate(cluster_paths):
+                sub_cluster = clusters[i]
+                if sub_cluster not in sub_clusters:
+                    sub_clusters[sub_cluster] = [path]
+                else:
+                    sub_clusters[sub_cluster].append(path)
 
-        # 将细分的结果合并
-        merged_sub_clusters = []
-        for sub_cluster_paths in sub_clusters.values():
-            if len(sub_cluster_paths) > 1:
-                merged_sub_clusters.append(sub_cluster_paths)
-            else:
-                merged_sub_clusters.append([sub_cluster_paths[0]])
+            # 将细分的结果合并
+            merged_sub_clusters = []
+            for sub_cluster_paths in sub_clusters.values():
+                if len(sub_cluster_paths) > 1:
+                    merged_sub_clusters.append(sub_cluster_paths)
+                else:
+                    merged_sub_clusters.append([sub_cluster_paths[0]])
 
-        final_clusters.extend(merged_sub_clusters)
+            final_clusters.extend(merged_sub_clusters)
+        else:
+            final_clusters.append(cluster_paths)  # 单个样本的簇直接添加到最终结果中
 
     return final_clusters
 
 def process_file(args):
     file_path = args
+    print(file_path)
     file_md5 = calculate_md5(file_path)
     global md5ToMFCC, pathToMFCC, fileQuant
 
