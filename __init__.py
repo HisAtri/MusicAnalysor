@@ -46,8 +46,8 @@ def feature(path, target_sr=8000, n_mfcc=30, frame_size=16384, hop_length=2048, 
     y = librosa.effects.preemphasis(y)      # 预加重处理
     y = librosa.util.normalize(y)           # 音量归一化
     mfcc_features = librosa.feature.mfcc(y=y, sr=target_sr, n_mfcc=n_mfcc, n_fft=frame_size, hop_length=hop_length)
-    # 转换精度
-    mfcc_features = mfcc_features.astype(np.float32)
+    # 转换精度*会出问题别用了
+    # mfcc_features = mfcc_features.astype(np.float32)
     return mfcc_features.flatten()
 
 def cosine_similarity(vector1, vector2):
